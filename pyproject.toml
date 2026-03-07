@@ -26,6 +26,9 @@ dependencies = [
     "uniplot>=0.21.2",
     "s3fs>=2024.9.0",
     "fsspec>=2024.9.0",
+    "opencc-python-reimplemented>=0.1.7",
+    "jieba-fast-dat>=0.58",
+    "fastembed>=0.7.4",
 ]
 
 [project.optional-dependencies]
@@ -50,6 +53,7 @@ members = ["arrow_tokenize"]
 dev = [
     "pyright>=1.1.407",
     "pytest>=8.4.0",
+    "pytest-cov>=7.0.0",
     "ruff>=0.14.4",
     "transformers[torch]>=4.51.3",
     "twine>=6.2.0",

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable, Sequence, TypeVar, cast
@@ -43,6 +44,80 @@ class Embedder:
     def embedding_dim(self) -> int:
         return self.bow_to_dense_embedder.output_dim
 
+    @classmethod
+    def from_components(
+        cls,
+        vocab: dict[str, int],
+        layers: list[NDArray[np.float32]],
+        idf_values: NDArray[np.float32] | None = None,
+        unk_token: str = "[UNK]"
+    ) -> Embedder:
+        """
+        Creates an Embedder instance from basic components. 
+        Ideal for custom models trained on local corpora.
+        """
+        from luxical.tokenization import create_optimized_arrow_tokenizer
+        from luxical.ngrams import build_ngram_hash_to_idx_map
+
+        logger.info(f"Assembling Embedder from components (vocab_size={len(vocab)})")
+        
+        # 1. Create robust tokenizer (this may add special tokens to vocab)
+        # We need the final vocab to build the hash map
+        tokenizer = create_optimized_arrow_tokenizer(vocab, unk_token=unk_token)
+        
+        # Get the updated vocab from the tokenizer to ensure consistency
+        final_vocab = json.loads(tokenizer.to_str())["model"]["vocab"]
+        
+        # 2. Build Ngram Hash Map (matching framework logic)
+        from luxical.ngrams import fnv1a_hash_array_to_int64
+        
+        keys = []
+        values = []
+        recognized_ngrams_list = []
+        
+        # Build mapping using the FINAL vocabulary
+        for token, idx in final_vocab.items():
+            ng = np.array([idx], dtype=np.uint32)
+            h = fnv1a_hash_array_to_int64(ng)
+            keys.append(h)
+            values.append(np.uint32(idx))
+            # recognized_ngrams stores the actual token sequences
+            recognized_ngrams_list.append(ng)
+
+        ngram_hash_to_ngram_idx = _pack_int_dict(
+            np.array(keys, dtype=np.int64), 
+            np.array(values, dtype=np.uint32)
+        )
+        
+        # 3. Setup IDF
+        if idf_values is None:
+            logger.warning(f"No IDF values provided, defaulting to uniform 1.0 for {len(final_vocab)} tokens")
+            idf_values = np.ones(len(final_vocab), dtype=np.float32)
+            
+        # 4. Assemble
+        bow_to_dense_embedder = SparseToDenseEmbedder(layers=layers)
+        
+        # Verify dimensions before returning
+        if bow_to_dense_embedder.input_dim != len(final_vocab):
+            raise ValueError(
+                f"Dimension mismatch: layers expect {bow_to_dense_embedder.input_dim} inputs, "
+                f"but vocab has {len(final_vocab)} tokens (including special tokens)."
+            )
+
+        # Pad recognized_ngrams to be a valid 2D array
+        max_len = max(len(ng) for ng in recognized_ngrams_list)
+        padded_ngrams = np.zeros((len(recognized_ngrams_list), max_len), dtype=np.int64)
+        for i, ng in enumerate(recognized_ngrams_list):
+            padded_ngrams[i, :len(ng)] = ng
+
+        return cls(
+            tokenizer=tokenizer,
+            recognized_ngrams=padded_ngrams,
+            ngram_hash_to_ngram_idx=ngram_hash_to_ngram_idx,
+            bow_to_dense_embedder=bow_to_dense_embedder,
+            idf_values=idf_values
+        )
+
     def save(self, path: str | Path) -> None:
         path = Path(path).resolve()
 
@@ -77,44 +152,64 @@ class Embedder:
     @classmethod
     def load(cls, path: str | Path) -> Embedder:
         path = Path(path).resolve()
+        
+        if not path.exists():
+            raise FileNotFoundError(f"Model file not found: {path}")
+            
+        if path.stat().st_size == 0:
+            raise ValueError(f"Model file is empty (0 bytes): {path}. Please check your training output.")
 
-        with np.load(path, allow_pickle=False) as npzfile:
-            # Ensure supported version.
-            version = npzfile["version"].item()
-            if version != EMBEDDER_FORMAT_VERSION:
-                raise NotImplementedError(
-                    f"Unsupported embedder format version {version}. "
-                    f"This code supports version {EMBEDDER_FORMAT_VERSION}."
+        try:
+            with np.load(path, allow_pickle=False) as npzfile:
+                # Ensure supported version.
+                if "version" not in npzfile:
+                    raise ValueError(f"Invalid model format: missing 'version' field in {path}")
+                    
+                version = npzfile["version"].item()
+                if version != EMBEDDER_FORMAT_VERSION:
+                    raise NotImplementedError(
+                        f"Unsupported embedder format version {version}. "
+                        f"This code supports version {EMBEDDER_FORMAT_VERSION}."
+                    )
+
+                # Check for mandatory keys
+                required_keys = ["tokenizer", "recognized_ngrams", "ngram_hash_to_ngram_idx_keys", "idf_values", "num_nn_layers"]
+                for key in required_keys:
+                    if key not in npzfile:
+                        raise ValueError(f"Model file {path} is corrupted: missing mandatory field '{key}'")
+
+                # Deserialize the tokenizer.
+                tokenizer_bytes_arr = npzfile["tokenizer"]
+                tokenizer_str = tokenizer_bytes_arr.tobytes().decode("utf-8")
+                tokenizer = ArrowTokenizer(tokenizer_str)
+
+                # Deserialize the recognized ngrams.
+                recognized_ngrams = npzfile["recognized_ngrams"]
+
+                # Deserialize the ngram hash to ngram index map.
+                ngram_idx_keys = npzfile["ngram_hash_to_ngram_idx_keys"]
+                ngram_idx_values = npzfile["ngram_hash_to_ngram_idx_values"]
+                ngram_hash_to_ngram_idx = _pack_int_dict(ngram_idx_keys, ngram_idx_values)
+
+                # Deserialize the IDF values.
+                idf_values = npzfile["idf_values"]
+
+                # Deserialize the neural network layers into a `SparseToDenseEmbedder`.
+                num_nn_layers = npzfile["num_nn_layers"][0]
+                nn_layers = [npzfile[f"nn_layer_{i}"] for i in range(num_nn_layers)]
+                bow_to_dense_embedder = SparseToDenseEmbedder(layers=nn_layers)
+
+                return cls(
+                    tokenizer=tokenizer,
+                    recognized_ngrams=recognized_ngrams,
+                    ngram_hash_to_ngram_idx=ngram_hash_to_ngram_idx,
+                    bow_to_dense_embedder=bow_to_dense_embedder,
+                    idf_values=idf_values,
                 )
-
-            # Deserialize the tokenizer.
-            tokenizer_bytes_arr = npzfile["tokenizer"]
-            tokenizer_str = tokenizer_bytes_arr.tobytes().decode("utf-8")
-            tokenizer = ArrowTokenizer(tokenizer_str)
-
-            # Deserialize the recognized ngrams.
-            recognized_ngrams = npzfile["recognized_ngrams"]
-
-            # Deserialize the ngram hash to ngram index map.
-            ngram_idx_keys = npzfile["ngram_hash_to_ngram_idx_keys"]
-            ngram_idx_values = npzfile["ngram_hash_to_ngram_idx_values"]
-            ngram_hash_to_ngram_idx = _pack_int_dict(ngram_idx_keys, ngram_idx_values)
-
-            # Deserialize the IDF values.
-            idf_values = npzfile["idf_values"]
-
-            # Deserialize the neural network layers into a `SparseToDenseEmbedder`.
-            num_nn_layers = npzfile["num_nn_layers"][0]
-            nn_layers = [npzfile[f"nn_layer_{i}"] for i in range(num_nn_layers)]
-            bow_to_dense_embedder = SparseToDenseEmbedder(layers=nn_layers)
-
-            return cls(
-                tokenizer=tokenizer,
-                recognized_ngrams=recognized_ngrams,
-                ngram_hash_to_ngram_idx=ngram_hash_to_ngram_idx,
-                bow_to_dense_embedder=bow_to_dense_embedder,
-                idf_values=idf_values,
-            )
+        except Exception as e:
+            if isinstance(e, (ValueError, FileNotFoundError, NotImplementedError)):
+                raise
+            raise RuntimeError(f"Failed to load model from {path}: {str(e)}") from e
 
     def tokenize(
         self, texts: pa.StringArray | Sequence[str]
@@ -209,6 +304,13 @@ class Embedder:
                 pbar_tokens.update(batch_size_in_tokens)
 
         return out
+
+    def encode(self, *args, **kwargs):
+        """Alias for __call__ to match standard model interfaces."""
+        return self.__call__(*args, **kwargs)
+
+# Alias for High-level API
+Model = Embedder
 
 
 def initialize_embedder_from_ngram_summary(

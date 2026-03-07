@@ -1,7 +1,6 @@
 data/
 .vscode/
 *.DS_Store
-
 **/.ipynb_checkpoints/
 
 # Python-generated files
@@ -14,3 +13,13 @@ wheels/
 
 # Virtual environments
 .venv
+
+# Data & Models (Local project files)
+data/
+models/
+projects/
+*.npz
+*.log
+*.parquet
+*.csv
+*.jsonl

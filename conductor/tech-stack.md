@@ -7,12 +7,17 @@
 - **PyTorch (>=2.5.0)：** 用於實作與訓練「稀疏到稠密」的 MLP。
 - **Numba (>=0.61.2)：** 用於優化的數值運算。
 - **SciPy (>=1.15.3)：** 用於稀疏矩陣操作與數值演算法。
+- **Luxical High-level API：** 自主研發的 `Model` 與 `Trainer` 介面，統一封裝了整個文本嵌入流水線。
 - **Scikit-learn (>=1.7.0)：** 選擇性地用於輔助機器學習工具。
 
-## 數據與模型處理 (Data & Model Handling)
-- **HuggingFace Transformers：** 用於與預訓練模型的無縫整合與推理。
-- **Tqdm：** 為訓練和推理過程提供進度條。
-- **S3FS & FSSpec：** 支援文件系統抽象與雲端存儲 (S3)。
+## Data & Model Handling
+- **HuggingFace Transformers:** For seamless integration and inference with pre-trained models.
+- **FastEmbed:** High-performance CPU-optimized embedding generation.
+- **bge-small-zh-v1.5 Teacher Model:** Light-weight SOTA Chinese embedding model for CPU-efficient distillation.
+- **jieba_fast_dat:** High-speed Chinese tokenization engine based on Double-Array Trie.
+- **OpenCC (opencc-python-reimplemented):** For Traditional/Simplified Chinese conversion and variant normalization.
+- **Tqdm:** Progress bars for training and inference.
+- **S3FS & FSSpec:** Filesystem abstraction and S3 storage support.
 
 ## 開發與構建工具 (Development & Build Tools)
 - **Hatchling：** Python 軟體包的構建後端。

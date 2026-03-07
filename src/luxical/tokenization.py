@@ -11,6 +11,59 @@ from arrow_tokenize import ArrowTokenizer
 logger = logging.getLogger(__name__)
 
 
+import json
+from typing import Any, Dict
+
+def create_wordpiece_tokenizer_config(vocab: Dict[str, int], unk_token: str = "[UNK]") -> str:
+    """
+    Creates a valid HuggingFace Tokenizer JSON configuration for WordPiece.
+    Guarantees that all required fields (like single_word) are present for ArrowTokenizer.
+    """
+    config = {
+        "version": "1.0",
+        "truncation": None,
+        "padding": None,
+        "added_tokens": [
+            {"id": vocab[t], "special": True, "content": t, "single_word": False, "lstrip": False, "rstrip": False, "normalized": False}
+            for t in ["[UNK]", "[CLS]", "[SEP]", "[MASK]", "[PAD]"] if t in vocab
+        ],
+        "normalizer": None,
+        "pre_tokenizer": {"type": "WhitespaceSplit"},
+        "post_processor": None,
+        "decoder": None,
+        "model": {
+            "type": "WordPiece",
+            "vocab": vocab,
+            "unk_token": unk_token,
+            "continuing_subword_prefix": "##",
+            "max_input_chars_per_word": 100
+        }
+    }
+    return json.dumps(config)
+
+
+def create_optimized_arrow_tokenizer(vocab: Dict[str, int], unk_token: str = "[UNK]") -> ArrowTokenizer:
+    """
+    Factory function to create an ArrowTokenizer instance from a vocabulary.
+    Automatically handles missing special tokens and mandatory JSON fields.
+    """
+    # Ensure mandatory special tokens exist in vocab for WordPiece stability
+    mandatory_tokens = [unk_token, "[CLS]", "[SEP]", "[MASK]", "[PAD]"]
+    
+    # We need to copy to avoid side-effects if the user reuses the vocab dict
+    vocab = vocab.copy()
+    
+    current_max = max(vocab.values()) if vocab else -1
+    for token in mandatory_tokens:
+        if token not in vocab:
+            current_max += 1
+            vocab[token] = current_max
+            logger.info(f"Auto-added missing special token '{token}' to vocab at index {current_max}")
+        
+    config_json = create_wordpiece_tokenizer_config(vocab, unk_token)
+    return ArrowTokenizer(config_json)
+
+
 def arrow_tokenizer_from_tokenizer(tokenizer: Tokenizer) -> ArrowTokenizer:
     return ArrowTokenizer(tokenizer.to_str())
 

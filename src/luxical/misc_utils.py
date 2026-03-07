@@ -22,7 +22,7 @@ def find_project_root(marker: str = ".git") -> Path:
     raise FileNotFoundError(f"Could not find project root from {current_path}")
 
 
-@numba.njit(error_model="numpy", parallel=True)
+@numba.njit(error_model="numpy", parallel=False)
 def fast_8bit_uniform_scalar_quantize(
     emb_matrix: NDArray[np.float32], limit: float
 ) -> NDArray[np.uint8]:
