@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pyarrow as pa
 
-from luxical.misc_utils import (
+from luxical_tw.misc_utils import (
     numpy_ndarray_to_pyarrow_fixed_size_list_array,
     pyarrow_fixed_size_list_array_to_numpy_ndarray,
 )

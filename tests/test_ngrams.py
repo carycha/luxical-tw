@@ -1,7 +1,7 @@
 import numpy as np
 from collections import Counter
 
-from luxical.ngrams import (
+from luxical_tw.ngrams import (
     space_saving_ngram_summary,
     merge_summaries,
     SpaceSavingNgramSummary,

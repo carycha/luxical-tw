@@ -1,11 +1,11 @@
 [project]
-name = "luxical"
+name = "luxical-tw"
 authors = [
     { name = "Luke Merrick", email = "luke@datology.ai" },
     { name = "DatologyAI Team" },
 ]
 dynamic = ["version"]
-description = "Lexical dense embeddings. Fast like light (lux)."
+description = "Lexical dense embeddings. Fast like light (lux). Traditional Chinese Fork."
 readme = "README.md"
 requires-python = ">=3.11,<3.14"
 classifiers = [
@@ -26,6 +26,9 @@ dependencies = [
     "uniplot>=0.21.2",
     "s3fs>=2024.9.0",
     "fsspec>=2024.9.0",
+    "opencc-python-reimplemented>=0.1.7",
+    "jieba-fast-dat>=0.58",
+    "fastembed>=0.7.4",
 ]
 
 [project.optional-dependencies]
@@ -38,7 +41,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.version]
-path = "src/luxical/__about__.py"
+path = "src/luxical_tw/__about__.py"
 
 [tool.uv.sources]
 "arrow-tokenize" = { workspace = true }
@@ -50,6 +53,7 @@ members = ["arrow_tokenize"]
 dev = [
     "pyright>=1.1.407",
     "pytest>=8.4.0",
+    "pytest-cov>=7.0.0",
     "ruff>=0.14.4",
     "transformers[torch]>=4.51.3",
     "twine>=6.2.0",

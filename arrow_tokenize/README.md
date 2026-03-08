@@ -22,7 +22,7 @@ The primary benefit of this approach is memory efficiency. By avoiding the creat
 
 ## Arrow-based Tokenization
 
-Luxical bundles in the `arrow-tokenize` Rust extension package, which exposes `ArrowTokenizer`, a fast tokenizer abstraction that operates on Arrow arrays and returns Arrow arrays. This avoids Python‑level overhead during large batch tokenization. Compared to the Python API of the `tokenizers` library, `arrow-tokenize` dramatically reduces pressure on the Python garbage collector and can deliver substantial speedups in bulk tokenization.
+Luxical-TW bundles in the `arrow-tokenize` Rust extension package, which exposes `ArrowTokenizer`, a fast tokenizer abstraction that operates on Arrow arrays and returns Arrow arrays. This avoids Python‑level overhead during large batch tokenization. Compared to the Python API of the `tokenizers` library, `arrow-tokenize` dramatically reduces pressure on the Python garbage collector and can deliver substantial speedups in bulk tokenization.
 
 Key Python API functions:
 - `load_arrow_tokenizer_from_pretrained(tokenizer_id: str) -> ArrowTokenizer`
@@ -32,7 +32,7 @@ Key Python API functions:
 Minimal example:
 
 ```python
-from luxical.tokenization import (
+from luxical_tw.tokenization import (
     load_arrow_tokenizer_from_pretrained,
     arrow_tokenize_texts,
 )

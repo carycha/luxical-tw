@@ -4,7 +4,7 @@ import numpy as np
 import pyarrow as pa
 import torch
 
-from luxical.training import (
+from luxical_tw.training import (
     arrow_streaming_shuffle,
     batch_index_generator,
     contrastive_distillation_loss,

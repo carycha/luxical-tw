@@ -6,7 +6,7 @@ import numba
 import numpy as np
 from numba.typed import Dict as NumbaTypedDict
 
-from luxical.embedder import (
+from luxical_tw.embedder import (
     EMBEDDER_FORMAT_VERSION,
     Embedder,
     _fast_tfidf_from_bow,
@@ -14,9 +14,9 @@ from luxical.embedder import (
     _unpack_int_dict,
     initialize_embedder_from_ngram_summary,
 )
-from luxical.ngrams import SpaceSavingNgramSummary
-from luxical.sparse_to_dense_neural_nets import SparseToDenseEmbedder
-from luxical.tokenization import ArrowTokenizer
+from luxical_tw.ngrams import SpaceSavingNgramSummary
+from luxical_tw.sparse_to_dense_neural_nets import SparseToDenseEmbedder
+from luxical_tw.tokenization import ArrowTokenizer
 
 
 def test_numba_dict_serialization():
@@ -110,14 +110,14 @@ def test_embedder_save_load_roundtrip():
             return mock_tok
 
         # Patch ArrowTokenizer constructor
-        import luxical.embedder
+        import luxical_tw.embedder
 
-        original_tokenizer = luxical.embedder.ArrowTokenizer
+        original_tokenizer = luxical_tw.embedder.ArrowTokenizer
         try:
-            luxical.embedder.ArrowTokenizer = mock_tokenizer_init
+            luxical_tw.embedder.ArrowTokenizer = mock_tokenizer_init
             loaded_embedder = Embedder.load(f.name)
         finally:
-            luxical.embedder.ArrowTokenizer = original_tokenizer
+            luxical_tw.embedder.ArrowTokenizer = original_tokenizer
 
         # Verify data integrity
         np.testing.assert_array_equal(
@@ -173,10 +173,10 @@ def test_embedder_version_checking():
         np.savez(bad_f.name, **data)
 
         try:
-            import luxical.embedder
+            import luxical_tw.embedder
 
-            original_tokenizer = luxical.embedder.ArrowTokenizer
-            luxical.embedder.ArrowTokenizer = lambda x: Mock(spec=ArrowTokenizer)
+            original_tokenizer = luxical_tw.embedder.ArrowTokenizer
+            luxical_tw.embedder.ArrowTokenizer = lambda x: Mock(spec=ArrowTokenizer)
 
             # Should raise NotImplementedError for unsupported version
             try:
@@ -186,7 +186,7 @@ def test_embedder_version_checking():
                 assert "999" in str(e)
                 assert str(EMBEDDER_FORMAT_VERSION) in str(e)
             finally:
-                luxical.embedder.ArrowTokenizer = original_tokenizer
+                luxical_tw.embedder.ArrowTokenizer = original_tokenizer
         finally:
             Path(bad_f.name).unlink()
 

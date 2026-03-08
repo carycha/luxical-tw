@@ -6,7 +6,7 @@ from pathlib import Path
 import numpy as np
 from scipy.sparse import csr_matrix
 
-from luxical.csr_matrix_utils import csr_matrix_from_npz, csr_matrix_to_npz
+from luxical_tw.csr_matrix_utils import csr_matrix_from_npz, csr_matrix_to_npz
 
 
 def test_csr_roundtrip() -> None:
